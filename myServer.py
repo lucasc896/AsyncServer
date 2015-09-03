@@ -2,6 +2,8 @@
 import socket as sk
 import select as sl
 import logging
+# import errno
+# from time import sleep
 
 #---------------------------------------------------------------------#
 # TO-DO
@@ -10,99 +12,126 @@ import logging
 
 #---------------------------------------------------------------------#
 
-class AceServer(object):
+class AceyncServer(object):
+    """an asynchronous echo server"""
     def __init__(self, debug = False):
-        print "Creating AceServer instance..."
+        print "\nCreating AceyncServer instance...\n"
         self._debug = debug
+        self._serverAddress = ('localhost', 6666)
         self._BUFSIZE = 4096
-
+        self._inputSocks = []
+        self._outputSocks = []
+        self._goodReadSocks = []
+        self._goodWriteSocks = []
+        self._badSocks = []
+        self._msgBuffers = {}
 
     def startListening(self):
+        """main workhorse function"""
 
-        listenerSock = sk.socket(sk.AF_INET, sk.SOCK_STREAM) # would make a member, but eventually will be async...
-        serverAddress = ('localhost', 6666) # rad port number, eh?
-        if self._debug: print "> Starting server on %s (port: %s)" % serverAddress
-        listenerSock.bind(serverAddress)
+        self._serverSock = sk.socket(sk.AF_INET, sk.SOCK_STREAM)
+        if self._debug: print "> Starting server on %s (port: %s)" % self._serverAddress
+        self._serverSock.bind(self._serverAddress)
 
-        # wait for a single connection (synchronous for now...)
-        listenerSock.listen(1)
+        # make it non-blocking!
+        self._serverSock.setblocking(0)
 
-        # this is where it waits for a connection...
-        while True:
-            # ticker? ;-)
-            if self._debug: print "> Waiting for a connection..."
-            
-            # get the connection, when it happens
-            clientSock, clientAddress = listenerSock.accept()
+        self._serverSock.listen(5)
 
-            # connection found - attempt to communicate over clientSock
-            try:
-                if self._debug: print clientSock, clientAddress
+        self._inputSocks.append(self._serverSock)
 
-                # collect message from client - put into func!
-                totalMsg = self.receiveClientMesssage(clientSock)
-                
-                # send the message back
-                self.echoBack(clientSock, " ".join(totalMsg))
-                break # move on to close the client socket
-            
-            finally:
-                # shutdown first?
-                clientSock.close()
-            
-            break # have this if only want one client connection ever
+        
+        # as long as there are any input sockets, it runs
+        while len(self._inputSocks) > 0:
 
-    def receiveClientMessage(self, sock):
-        while True:
-            msg = sock.recv(self._BUFSIZE)
-            print "Received: %s" % msg
-            
-            if msg:
-                totalMsg.append(msg)
-                
-                if msg[-1] == "\n": # not only at the end of string?
-                    # on receipt on line break, jump out of receiving loop
-                    if self._debug: print "> Linebreak detected."
-                    return totalMsg
-            else:
-                # here to stop it looping at end
-                return totalMsg
+            # use select to update all ready sockets, and check for dodgy error socks
+            self._goodReadSocks, self._goodWriteSocks, self._badSocks = sl.select(self._inputSocks, self._outputSocks, self._inputSocks)
 
+            if self._debug: self.printSockLists("Start of loop")
+            if self._debug: print self._msgBuffers
+
+            # check if there are ever any socks in error
+            for bSock in self._badSocks:
+                print "BAD SOCK:", bSock
+                if bSock == self._serverSock:
+                    raise "Bad Server Sock!"
+                # if any sock is in error or has an exception, remove it entirely
+                self._inputSocks.remove(bSock)
+                if bSock in self._outputSocks:
+                    self._outputSocks.remove(bSock)
+                bSock.close()
+
+
+            # loop through all readable socks
+            for rSock in self._goodReadSocks:
+
+                if rSock == self._serverSock:
+                    # if the serverSock is readable, then accept the incoming client connection
+                    newClientConn, newClientAddr = rSock.accept()
+                    
+                    # make non-blocking too
+                    newClientConn.setblocking(0)
+                    
+                    if self._debug: print "> New client connection:", newClientAddr, newClientConn
+                    # add new socket to input list, ready for potential recv'ing
+                    self._inputSocks.append(newClientConn)
+                    
+                    # add empty buffer entry
+                    self._msgBuffers[newClientConn] = []
+
+                    # if not already, add new socket to the output list, ready for potential send'ing
+                    if rSock not in self._outputSocks:
+                        self._outputSocks.append(newClientConn)
+                else:
+                    # if readable sock is one of the clients, then recv from it
+                    recvMsg = rSock.recv(self._BUFSIZE)
+                    
+                    if recvMsg:
+                        # if message received, then add to buffers to echo later
+                        print "Message received from %s: %s" % (rSock.getpeername(), recvMsg)
+                        self._msgBuffers[rSock].append(recvMsg)
+                    else:
+                        # if no message received, the client must be gone, so remove
+                        self._inputSocks.remove(rSock)
+                        if rSock in self._outputSocks:
+                            self._outputSocks.remove(rSock)
+                        rSock.close()
+
+            for wSock in self._goodWriteSocks:
+                if self._debug: print "Write loop:", wSock
+                if self._debug: print self._msgBuffers
+
+                # check whether there's a buffered message for this sock
+                try:
+                    echoMsg = " ".join(self._msgBuffers[wSock])
+                except KeyError:
+                    if self._debug: print "> No msg to echo back..."
+                    echoMsg = ""
+
+                if echoMsg:
+                    # if there is, send that bad boy back
+                    self.echoBack(wSock, echoMsg)
+                    self._msgBuffers[wSock] = []
+
+            if self._debug: self.printSockLists("End of loop")
 
     def echoBack(self, sock, msg = ""):
-        print "Sending back: %s" % msg
+        """echo wrapper function"""
+        print "Echoing to %s: %s" % (sock.getpeername(), msg)
         sock.sendall(msg)
-            
-    def clientSession(self):
-        transmission = []
-        
-        # note, in RL the amount sent and recv through the socket will be limited by the network buffer...
-        # should consider this in the program somehow - make sure a single message is dealt with by enough 'recv's over the socket
 
-        while True:
-            clientInput = raw_input("")
-            if clientInput:
-                transmission.append(clientInput)
-                # print repr(clientInput), len(clientInput)
-            else:
-                # currently an empty input ends transmission - should improve
-                # UPDATE: apparently in RL a 0 bytes recv over a socket indicates the end of a session...
-                self.echoTransmission(transmission)
-                break
-
-    def echoTransmission(self, trans = []):
-        print "This transmission:\n"
-
-        for t in trans:
-            print "> %s" % t
-
-        # or...
-        # print "\n".join(trans)
-
-        print "-" * 30
-        print "End Transmission."
+    def printSockLists(self, label = ""):
+        """useful for debugging"""
+        print "-"*40
+        print label, "\n"
+        print "  InputSocks:", self._inputSocks
+        print "  OutputSocks:", self._outputSocks
+        print "  ReadableSocks:", self._goodReadSocks
+        print "  WritableSocks:", self._goodWriteSocks
+        print "  BadSocks:", self._badSocks
+        print "-"*40
 
 if __name__ == "__main__":
 
-    server = AceServer(debug = True)
+    server = AceyncServer(debug = False)
     server.startListening()
