@@ -9,26 +9,22 @@ else:
 
 BUFSIZE = 4096
 
-sock = sk.socket(sk.AF_INET, sk.SOCK_STREAM)
+socks = [sk.socket(sk.AF_INET, sk.SOCK_STREAM),sk.socket(sk.AF_INET, sk.SOCK_STREAM)]
+print socks
 serverAddress = ('localhost', 6666)
-print "> Trying to connect to server on %s (port: %s)" % serverAddress
-sock.connect(serverAddress)
-print "> Connected to", serverAddress
+for sock in socks:
+    print "> Trying to connect to server on %s (port: %s)" % serverAddress
+    sock.connect(serverAddress)
+    print "> Connected to", serverAddress
 
-# while True:
-#     msg = raw_input("Input:")
 for msg in [mesg, "i'm ok.\n"]:
-    if msg:
+        
+    for sock in socks:
         print "Sending", msg
         sock.sendall(msg)
-    else:
-        break
-
-while True:
-    print "Ready to receive..."
-    msg = sock.recv(BUFSIZE)
     
-    if not msg: break
-
-    print "Received: %s" % msg
-
+    for sock in socks:
+        msg = sock.recv(BUFSIZE)
+        print "Received: %s" % msg
+        if not msg:
+            sock.close()
