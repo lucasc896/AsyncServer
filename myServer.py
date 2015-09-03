@@ -38,25 +38,10 @@ class AceServer(object):
             # connection found - attempt to communicate over clientSock
             try:
                 if self._debug: print clientSock, clientAddress
-                
-                totalMsg = []
 
                 # collect message from client - put into func!
-                while True:
-                    msg = clientSock.recv(self._BUFSIZE)
-                    print "Received: %s" % msg
-                    
-                    if msg:
-                        totalMsg.append(msg)
-                        
-                        if msg[-1] == "\n": # not only at the end of string?
-                            # on receipt on line break, jump out of receiving loop
-                            if self._debug: print "> Linebreak detected."
-                            break
-                    else:
-                        # here to stop it looping at end
-                        break
-
+                totalMsg = self.receiveClientMesssage(clientSock)
+                
                 # send the message back
                 self.echoBack(clientSock, " ".join(totalMsg))
                 break # move on to close the client socket
@@ -66,6 +51,22 @@ class AceServer(object):
                 clientSock.close()
             
             break # have this if only want one client connection ever
+
+    def receiveClientMessage(self, sock):
+        while True:
+            msg = sock.recv(self._BUFSIZE)
+            print "Received: %s" % msg
+            
+            if msg:
+                totalMsg.append(msg)
+                
+                if msg[-1] == "\n": # not only at the end of string?
+                    # on receipt on line break, jump out of receiving loop
+                    if self._debug: print "> Linebreak detected."
+                    return totalMsg
+            else:
+                # here to stop it looping at end
+                return totalMsg
 
 
     def echoBack(self, sock, msg = ""):
