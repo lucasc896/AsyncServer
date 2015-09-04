@@ -3,8 +3,6 @@ import socket as sk
 from sys import argv
 from time import sleep
 
-#---------------------------------------------------------------------#
-
 #---------------------------------------------#
 # Written by Chris Lucas (4th September 2015) #
 # lucasc896@gmail.com                         #
@@ -12,8 +10,6 @@ from time import sleep
 # Covering letter:  goo.gl/RlBRGF             #
 # CV:               goo.gl/rmmKht             #
 #---------------------------------------------#
-
-#---------------------------------------------------------------------#
 
 if len(argv) > 1:
     mesg = argv[1]
