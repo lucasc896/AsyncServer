@@ -2,6 +2,7 @@
 import socket as sk
 import select as sl
 import logging as lg
+from sys import exit
 from optparse import OptionParser
 
 #---------------------------------------------------------------------#
@@ -67,10 +68,14 @@ class AceyncServer(object):
         # create main listener socket
         self._serverSock = sk.socket(sk.AF_INET, sk.SOCK_STREAM)
 
-        lg.debug("> Starting server on %s (port: %s)" % self._serverAddress)
+        lg.info("Starting server on %s (port: %s)" % self._serverAddress)
 
-        self._serverSock.bind(self._serverAddress)
-
+        try:
+            self._serverSock.bind(self._serverAddress)
+        except Exception, e:
+            lg.error("ERROR binding server socket with %s. Exception: %s" % (self._serverAddress, e))
+            exit()
+            
         # make it non-blocking!
         self._serverSock.setblocking(0)
 
@@ -98,7 +103,7 @@ class AceyncServer(object):
 
             # check if there are ever any socks in error
             for bSock in self._socks['bad']:
-                lg.error("BAD SOCK: %s" % bSock)
+                lg.warning("BAD SOCK: %s" % bSock)
                 self._socks['in'].remove(bSock)
                 if bSock in self._socks['out']:
                     self._socks['out'].remove(bSock)
@@ -130,18 +135,20 @@ class AceyncServer(object):
                 else:
                     # if readable socket is one of the clients, then recv
                     recvMsg = rSock.recv(self._BUFSIZE)
-                    
+
                     if recvMsg:
-                        # if message received, then add to buffers to echo later
-                        lg.info("Message received from %s: %s" % (rSock.getpeername(), recvMsg))
+                        # if message received, then add to message buffer
+                        lg.info("Message received from %s: %s" % (rSock.getpeername(),
+                                                                    recvMsg.rstrip("\n")))
                         self._msgBuffers[rSock].Add(recvMsg)
 
                         # check if message is ready to be echoed
                         if recvMsg[-1] == "\n":
-                            lg.debug("End of line received.")
+                            lg.debug("End of line received. Will echo.")
                             self._msgBuffers[rSock].EchoReady(True)
                     else:
                         # if no message received, the client must be gone, so remove
+                        lg.debug("Removing disconnected client: %s" % rSock)
                         self._socks['in'].remove(rSock)
                         if rSock in self._socks['out']:
                             self._socks['out'].remove(rSock)
@@ -153,7 +160,6 @@ class AceyncServer(object):
 
                 # check whether there's a message ready to be echoed
                 if self._msgBuffers[wSock].EchoReady(): 
-                    # if there is, send that bad boy back
                     self.echoBack(wSock, self._msgBuffers[wSock].Get())
                     self._msgBuffers[wSock].Reset() # reset message buffer, ready for another
 
