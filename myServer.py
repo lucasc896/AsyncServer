@@ -21,7 +21,7 @@ class MessageBuf(object):
     def EchoReady(self, choice = None):
         """dual-use function dealing with echo readiness"""
         if choice:
-            self._echo = bool(choice) # DODGY?
+            self._echo = bool(choice)
         else:
             return self._echo
 
@@ -75,7 +75,7 @@ class AceyncServer(object):
         except Exception, e:
             lg.error("ERROR binding server socket with %s. Exception: %s" % (self._serverAddress, e))
             exit()
-            
+
         # make it non-blocking!
         self._serverSock.setblocking(0)
 
@@ -97,9 +97,6 @@ class AceyncServer(object):
 
             if not (self._socks['read'] or self._socks['write'] or self._socks['bad']):
                 lg.info("Timed out.")
-
-            # if self._debug: self.printSockLists("Start of loop")
-            # if self._debug: print self._msgBuffers
 
             # check if there are ever any socks in error
             for bSock in self._socks['bad']:
@@ -156,20 +153,16 @@ class AceyncServer(object):
 
             for wSock in self._socks['write']:
                 lg.debug("Write loop: %s" % wSock)
-                # if self._debug: print self._msgBuffers
 
                 # check whether there's a message ready to be echoed
                 if self._msgBuffers[wSock].EchoReady(): 
                     self.echoBack(wSock, self._msgBuffers[wSock].Get())
                     self._msgBuffers[wSock].Reset() # reset message buffer, ready for another
 
-            # if self._debug: self.printSockLists("End of loop")
-
     def echoBack(self, sock, msg = ""):
         """echo wrapper function"""
         lg.info("Echoing to %s: %s" % (sock.getpeername(), msg))
-        # note: using 'sendall' lets python deal with packet splitting according
-        # to network buffer
+        # note: using 'sendall' lets python deal with packet splitting according to network buffer
         sock.sendall(msg)
 
     def printSockLists(self, label = ""):
