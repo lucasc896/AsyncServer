@@ -19,71 +19,76 @@ class AceyncServer(object):
         self._debug = debug
         self._serverAddress = ('localhost', 6666)
         self._BUFSIZE = 4096
-        self._inputSocks = []
-        self._outputSocks = []
-        self._goodReadSocks = []
-        self._goodWriteSocks = []
-        self._badSocks = []
+        self._MAXCLIENTS = 5
+        self._socks = dict.fromkeys(['in', 'out', 'read', 'write', 'bad'], [])
         self._msgBuffers = {}
 
     def startListening(self):
         """main workhorse function"""
 
+        # create main listener socket
         self._serverSock = sk.socket(sk.AF_INET, sk.SOCK_STREAM)
-        if self._debug: print "> Starting server on %s (port: %s)" % self._serverAddress
+
+        if self._debug:
+            print "> Starting server on %s (port: %s)" % self._serverAddress
         self._serverSock.bind(self._serverAddress)
 
         # make it non-blocking!
         self._serverSock.setblocking(0)
 
-        self._serverSock.listen(5)
+        # set it to listen
+        self._serverSock.listen(self._MAXCLIENTS)
 
-        self._inputSocks.append(self._serverSock)
+        self._socks['in'].append(self._serverSock)
 
         
         # as long as there are any input sockets, it runs
-        while len(self._inputSocks) > 0:
+        while len(self._socks['in']) > 0:
 
-            # use select to update all ready sockets, and check for dodgy error socks
-            self._goodReadSocks, self._goodWriteSocks, self._badSocks = sl.select(self._inputSocks, self._outputSocks, self._inputSocks)
+            # use select to update all ready sockets, and check for dodgy socks
+            self._socks['read'], self._socks['write'], self._socks['bad'] = sl.select(self._socks['in'],
+                                                                                    self._socks['out'],
+                                                                                    self._socks['in'])
 
             if self._debug: self.printSockLists("Start of loop")
             if self._debug: print self._msgBuffers
 
             # check if there are ever any socks in error
-            for bSock in self._badSocks:
+            for bSock in self._socks['bad']:
                 print "BAD SOCK:", bSock
                 if bSock == self._serverSock:
                     raise "Bad Server Sock!"
-                # if any sock is in error or has an exception, remove it entirely
-                self._inputSocks.remove(bSock)
-                if bSock in self._outputSocks:
-                    self._outputSocks.remove(bSock)
+                # if any sock is in error or has an exception, remove entirely
+                self._socks['in'].remove(bSock)
+                if bSock in self._socks['out']:
+                    self._socks['out'].remove(bSock)
                 bSock.close()
 
 
             # loop through all readable socks
-            for rSock in self._goodReadSocks:
+            for rSock in self._socks['read']:
 
                 if rSock == self._serverSock:
-                    # if the serverSock is readable, then accept the incoming client connection
+                    # if the serverSock is ready to read, then accept the
+                    # incoming client connection
                     newClientConn, newClientAddr = rSock.accept()
-                    
                     # make non-blocking too
                     newClientConn.setblocking(0)
                     
-                    if self._debug: print "> New client connection:", newClientAddr, newClientConn
+                    if self._debug:
+                        print "> New client connection: %s %s" % (newClientAddr, newClientConn)
+                    
                     # add new socket to input list, ready for potential recv'ing
-                    self._inputSocks.append(newClientConn)
+                    self._socks['in'].append(newClientConn)
                     
                     # add empty buffer entry
                     self._msgBuffers[newClientConn] = []
 
-                    # if not already, add new socket to the output list, ready for potential send'ing
-                    if rSock not in self._outputSocks:
-                        self._outputSocks.append(newClientConn)
+                    # if not already, add new socket to the output list, ready for potential send
+                    if rSock not in self._socks['out']:
+                        self._socks['out'].append(newClientConn)
                 else:
-                    # if readable sock is one of the clients, then recv from it
+                    # if readable socket is one of the clients, then recv
                     recvMsg = rSock.recv(self._BUFSIZE)
                     
                     if recvMsg:
@@ -92,12 +97,12 @@ class AceyncServer(object):
                         self._msgBuffers[rSock].append(recvMsg)
                     else:
                         # if no message received, the client must be gone, so remove
-                        self._inputSocks.remove(rSock)
-                        if rSock in self._outputSocks:
-                            self._outputSocks.remove(rSock)
+                        self._socks['in'].remove(rSock)
+                        if rSock in self._socks['out']:
+                            self._socks['out'].remove(rSock)
                         rSock.close()
 
-            for wSock in self._goodWriteSocks:
+            for wSock in self._socks['write']:
                 if self._debug: print "Write loop:", wSock
                 if self._debug: print self._msgBuffers
 
@@ -118,17 +123,19 @@ class AceyncServer(object):
     def echoBack(self, sock, msg = ""):
         """echo wrapper function"""
         print "Echoing to %s: %s" % (sock.getpeername(), msg)
+        # note: using 'sendall' lets python deal with packet splitting according
+        # to network buffer
         sock.sendall(msg)
 
     def printSockLists(self, label = ""):
         """useful for debugging"""
         print "-"*40
         print label, "\n"
-        print "  InputSocks:", self._inputSocks
-        print "  OutputSocks:", self._outputSocks
-        print "  ReadableSocks:", self._goodReadSocks
-        print "  WritableSocks:", self._goodWriteSocks
-        print "  BadSocks:", self._badSocks
+        print "  InputSocks:", self._socks['in']
+        print "  OutputSocks:", self._socks['out']
+        print "  ReadableSocks:", self._socks['read']
+        print "  WritableSocks:", self._socks['write']
+        print "  BadSocks:", self._socks['bad']
         print "-"*40
 
 if __name__ == "__main__":
