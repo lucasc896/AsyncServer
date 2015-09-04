@@ -62,7 +62,7 @@ class AceyncServer(object):
         print "-      by Chris Lucas       -"
         print "="*w, "\n"
 
-    def startListening(self):
+    def run(self):
         """main workhorse function"""
 
         # create main listener socket
@@ -192,5 +192,6 @@ if __name__ == "__main__":
 
     lg.basicConfig(level=opts.loglevel.upper())
 
+    # create instance of server and start in running
     server = AceyncServer(debug = opts.debug)
-    server.startListening()
+    server.run()
