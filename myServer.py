@@ -8,7 +8,7 @@ from optparse import OptionParser
 #---------------------------------------------------------------------#
 
 class MessageBuf(object):
-    """short container for message to echo"""
+    """short container for messages to echo"""
     def __init__(self):
         self._msg = []
         self._echo = False
@@ -45,7 +45,7 @@ class MessageBuf(object):
 #---------------------------------------------------------------------#
 
 class AceyncServer(object):
-    """an asynchronous echo server"""
+    """an ace asynchronous echo server"""
     def __init__(self, debug = False):
         self.splash()
         self._debug = debug
@@ -87,6 +87,7 @@ class AceyncServer(object):
         
         # as long as there are any input sockets, it runs
         while len(self._socks['in']) > 0:
+            # self.printSockLists('Beginning of loop.')
 
             # use select to update all ready sockets, and check for dodgy socks
             timeout = 20 # add timeout to keep the server appearing as working
@@ -169,11 +170,8 @@ class AceyncServer(object):
         """useful for debugging"""
         print "-"*40
         print label, "\n"
-        print "  InputSocks:", self._socks['in']
-        print "  OutputSocks:", self._socks['out']
-        print "  ReadableSocks:", self._socks['read']
-        print "  WritableSocks:", self._socks['write']
-        print "  BadSocks:", self._socks['bad']
+        for key in self._socks:
+            print " %s:\t" % key, self._socks[key]
         print "-"*40
 
 #---------------------------------------------------------------------#
