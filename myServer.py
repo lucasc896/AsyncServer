@@ -157,7 +157,6 @@ class AceyncServer(object):
                         self._socks['in'].remove(rSock)
                         if rSock in self._socks['out']:
                             self._socks['out'].remove(rSock)
-                        del self._msgBuffers[rSock]
                         rSock.close()
 
 
