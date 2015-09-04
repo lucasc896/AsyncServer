@@ -5,7 +5,13 @@ import logging as lg
 from sys import exit
 from optparse import OptionParser
 
-#---------------------------------------------------------------------#
+#---------------------------------------------#
+# Written by Chris Lucas (4th September 2015) #
+# lucasc896@gmail.com                         #
+#                                             #
+# Covering letter:  goo.gl/RlBRGF             #
+# CV:               goo.gl/rmmKht             #
+#---------------------------------------------#
 
 class MessageBuf(object):
     """short container for messages to echo"""
@@ -119,7 +125,7 @@ class AceyncServer(object):
                     # make non-blocking too
                     newClientConn.setblocking(0)
                     
-                    lg.debug("New client connection: %s %s" % (newClientAddr, newClientConn))
+                    lg.info("New client connection: %s %s" % (newClientAddr, newClientConn))
                     
                     # add new socket to input list, ready for potential recv'ing
                     self._socks['in'].append(newClientConn)
@@ -138,7 +144,7 @@ class AceyncServer(object):
                         # if message received, then add to message buffer
                         lg.info("Message received from %s: %s" % (rSock.getpeername(),
                                                                     recvMsg.rstrip("\n")))
-                        # note: don't remove the '\n' from the buffered message!
+                        # note: don't rstrip the '\n' from the buffered message!
                         self._msgBuffers[rSock].Add(recvMsg)
 
                         # check if message is ready to be echoed
@@ -151,7 +157,9 @@ class AceyncServer(object):
                         self._socks['in'].remove(rSock)
                         if rSock in self._socks['out']:
                             self._socks['out'].remove(rSock)
+                        del self._msgBuffers[rSock]
                         rSock.close()
+
 
             for wSock in self._socks['write']:
                 lg.debug("Write loop: %s" % wSock)
