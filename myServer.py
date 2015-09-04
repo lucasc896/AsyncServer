@@ -5,11 +5,6 @@ import logging as lg
 from optparse import OptionParser
 
 #---------------------------------------------------------------------#
-# TO-DO
-# 1. Implement logging - do this early
-# 2. Add some command line options - debug! or logging level?
-
-#---------------------------------------------------------------------#
 
 class MessageBuf(object):
     """short container for message to echo"""
@@ -106,7 +101,7 @@ class AceyncServer(object):
             # loop through all readable socks
             for rSock in self._socks['read']:
                 lg.debug("Read loop: %s" % rSock)
-                
+
                 if rSock == self._serverSock:
                     # if the serverSock is ready to read, then accept the incoming client connection
                     newClientConn, newClientAddr = rSock.accept()
