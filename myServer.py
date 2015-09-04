@@ -33,6 +33,14 @@ class MessageBuf(object):
         self._msg = []
         self._echo = False
 
+    def __str__(self):
+        """string repr for easy debugging"""
+        out = ""
+        out += "MessageBuf Container:: "
+        out += " msg: " + " ".join(self._msg)
+        out += " echo: " + str(self._echo)
+        return out
+
 #---------------------------------------------------------------------#
 
 class AceyncServer(object):
