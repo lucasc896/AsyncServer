@@ -65,7 +65,7 @@ class AceyncServer(object):
     def run(self):
         """main workhorse function"""
 
-        # create main listener socket
+        # create main listener socket (IP, streaming)
         self._serverSock = sk.socket(sk.AF_INET, sk.SOCK_STREAM)
 
         lg.info("Starting server on %s (port: %s)" % self._serverAddress)
@@ -138,6 +138,7 @@ class AceyncServer(object):
                         # if message received, then add to message buffer
                         lg.info("Message received from %s: %s" % (rSock.getpeername(),
                                                                     recvMsg.rstrip("\n")))
+                        # note: don't remove the '\n' from the buffered message!
                         self._msgBuffers[rSock].Add(recvMsg)
 
                         # check if message is ready to be echoed
